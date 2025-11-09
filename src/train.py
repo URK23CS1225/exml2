@@ -1,44 +1,42 @@
-import os
+import json
 from pathlib import Path
-from sklearn.datasets import load_iris
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
 from joblib import dump
-import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
 
-# Set random seed for consistent results
-np.random.seed(42)
-
-# Directory to save model and metrics
-ARTIFACT_DIR = Path("artifacts")
-ARTIFACT_DIR.mkdir(exist_ok=True)
+ARTIFACTS_DIR = Path("artifacts")
+ARTIFACTS_DIR.mkdir(exist_ok=True)
 
 def main():
-    # Load a small dataset (Iris)
-    X, y = load_iris(return_X_y=True)
+    iris = load_iris()
+    X, y = iris.data, iris.target
 
-    # Split dataset into train and validation
     X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.2, random_state=42
+        X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    # Train a simple machine learning model
-    model = LogisticRegression(max_iter=200)
+    model = LogisticRegression(max_iter=300, n_jobs=None)
     model.fit(X_train, y_train)
 
-    # Save trained model
-    dump(model, ARTIFACT_DIR / "model.joblib")
+    # Save model
+    model_path = ARTIFACTS_DIR / "model.joblib"
+    dump(model, model_path)
 
-    # Calculate accuracy
-    train_acc = model.score(X_train, y_train)
-    val_acc = model.score(X_val, y_val)
+    # Evaluate on train/val
+    train_acc = accuracy_score(y_train, model.predict(X_train))
+    val_acc = accuracy_score(y_val, model.predict(X_val))
 
-    # Save metrics into a text file
-    with open(ARTIFACT_DIR / "train_metrics.txt", "w") as f:
-        f.write(f"Training Accuracy: {train_acc}\n")
-        f.write(f"Validation Accuracy: {val_acc}\n")
+    metrics = {
+        "train_accuracy": round(train_acc, 4),
+        "val_accuracy": round(val_acc, 4),
+    }
+    with open(ARTIFACTS_DIR / "metrics.json", "w") as f:
+        json.dump(metrics, f, indent=2)
 
-    print("✅ Model trained and saved successfully!")
+    print(f"Saved model -> {model_path}")
+    print(f"Metrics -> {metrics}")
 
 if __name__ == "__main__":
     main()

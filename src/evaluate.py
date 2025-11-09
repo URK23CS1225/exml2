@@ -1,39 +1,30 @@
+import json
 from pathlib import Path
 from joblib import load
 from sklearn.datasets import load_iris
-from sklearn.metrics import accuracy_score, classification_report
-import numpy as np
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
 
-# Set random seed for consistent results
-np.random.seed(42)
-
-ARTIFACT_DIR = Path("artifacts")
+ARTIFACTS_DIR = Path("artifacts")
 
 def main():
-    # Load model saved during training
-    model_path = ARTIFACT_DIR / "model.joblib"
-    if not model_path.exists():
-        raise FileNotFoundError("❌ Model file not found. Run train.py first.")
+    model = load(ARTIFACTS_DIR / "model.joblib")
+    iris = load_iris()
+    X, y = iris.data, iris.target
+    _, X_val, _, y_val = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+    val_acc = accuracy_score(y_val, model.predict(X_val))
+    print(f"Validation accuracy: {val_acc:.4f}")
 
-    model = load(model_path)
-
-    # Load dataset again for evaluation
-    X, y = load_iris(return_X_y=True)
-
-    # Predict
-    predictions = model.predict(X)
-
-    # Calculate accuracy
-    accuracy = accuracy_score(y, predictions)
-    report = classification_report(y, predictions)
-
-    # Save evaluation results
-    with open(ARTIFACT_DIR / "eval_metrics.txt", "w") as f:
-        f.write(f"Overall Accuracy: {accuracy}\n\n")
-        f.write("Classification Report:\n")
-        f.write(report)
-
-    print("✅ Evaluation completed. Metrics saved!")
+    # (Optionally) overwrite metrics.json with latest val acc
+    metrics_path = ARTIFACTS_DIR / "metrics.json"
+    try:
+        metrics = json.loads(metrics_path.read_text())
+    except FileNotFoundError:
+        metrics = {}
+    metrics["val_accuracy"] = round(val_acc, 4)
+    metrics_path.write_text(json.dumps(metrics, indent=2))
 
 if __name__ == "__main__":
     main()
